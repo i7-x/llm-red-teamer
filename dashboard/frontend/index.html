@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Red Teamer — Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;400;600;900&display=swap');
+
+    :root {
+      --bg:        #080b10;
+      --surface:   #0d1117;
+      --surface2:  #161b22;
+      --border:    #21262d;
+      --accent:    #f85149;
+      --accent2:   #1f6feb;
+      --warn:      #e3b341;
+      --ok:        #3fb950;
+      --text:      #c9d1d9;
+      --text-dim:  #6e7681;
+      --mono:      'Share Tech Mono', monospace;
+      --head:      'Exo 2', sans-serif;
+      --body-font: 'Rajdhani', sans-serif;
+      --critical:  #f85149;
+      --high:      #db6d28;
+      --medium:    #e3b341;
+      --low:       #3fb950;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--body-font);
+      font-size: 15px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid noise overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(248,81,73,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(248,81,73,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── LAYOUT ─────────────────────────────────────────────── */
+    .shell { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+
+    .logo {
+      font-family: var(--head);
+      font-weight: 900;
+      font-size: 1.35rem;
+      letter-spacing: 0.06em;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo span.brand { color: var(--accent); }
+    .logo span.dot { color: var(--text-dim); font-size: 0.7rem; }
+    .logo span.ver { color: var(--text-dim); font-size: 0.75rem; font-family: var(--mono); }
+
+    .header-actions { display: flex; gap: 12px; align-items: center; }
+
+    .nav-tabs {
+      display: flex; gap: 4px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px;
+    }
+    .nav-tab {
+      font-family: var(--body-font);
+      font-weight: 600;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      padding: 6px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      transition: all 0.15s;
+      text-transform: uppercase;
+    }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active { background: var(--accent); color: #fff; }
+
+    main { flex: 1; padding: 28px; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+    /* ── PANELS ─────────────────────────────────────────────── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .panel-title {
+      font-family: var(--head);
+      font-weight: 700;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .panel-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── STAT GRID ───────────────────────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent-bar, var(--accent));
+    }
+    .stat-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 1.6rem;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    /* ── TABLE ──────────────────────────────────────────────── */
+    .scan-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .scan-table th {
+      font-family: var(--head);
+      font-weight: 700;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .scan-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(33,38,45,0.7);
+      vertical-align: middle;
+    }
+    .scan-table tr:hover td { background: var(--surface2); }
+    .scan-table tr:last-child td { border-bottom: none; }
+
+    .mono { font-family: var(--mono); font-size: 0.82rem; }
+    .dim { color: var(--text-dim); }
+
+    /* ── SEVERITY BADGES ─────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      font-weight: bold;
+    }
+    .badge-critical { background: rgba(248,81,73,0.15); color: var(--critical); border: 1px solid rgba(248,81,73,0.3); }
+    .badge-high     { background: rgba(219,109,40,0.15); color: var(--high);     border: 1px solid rgba(219,109,40,0.3); }
+    .badge-medium   { background: rgba(227,179,65,0.15); color: var(--medium);   border: 1px solid rgba(227,179,65,0.3); }
+    .badge-low      { background: rgba(63,185,80,0.15);  color: var(--low);      border: 1px solid rgba(63,185,80,0.3); }
+    .badge-none     { background: rgba(110,118,129,0.15); color: var(--text-dim); border: 1px solid rgba(110,118,129,0.3); }
+
+    /* ── BUTTONS ─────────────────────────────────────────────── */
+    .btn {
+      font-family: var(--body-font);
+      font-weight: 700;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 8px 18px;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #ff6b63; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+    .btn-sm { padding: 5px 12px; font-size: 0.72rem; }
+
+    /* ── UPLOAD ZONE ─────────────────────────────────────────── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 36px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(248,81,73,0.04);
+    }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-icon { font-size: 2rem; margin-bottom: 10px; }
+    .upload-text { color: var(--text-dim); font-size: 0.9rem; }
+    .upload-text strong { color: var(--accent); }
+
+    /* ── CHARTS ──────────────────────────────────────────────── */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .chart-wrap { position: relative; height: 240px; }
+
+    /* ── FINDINGS ─────────────────────────────────────────────── */
+    .finding-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--sev-color, var(--accent));
+      border-radius: 4px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .finding-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .finding-name { font-weight: 600; font-size: 0.92rem; }
+    .finding-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .finding-signal { font-size: 0.78rem; color: var(--text-dim); font-family: var(--mono); }
+    .finding-response {
+      margin-top: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      max-height: 80px;
+      overflow: hidden;
+      position: relative;
+    }
+    .finding-response::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 30px;
+      background: linear-gradient(transparent, var(--bg));
+    }
+
+    /* ── FILTER BAR ───────────────────────────────────────────── */
+    .filter-bar {
+      display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+    }
+    .filter-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-family: var(--body-font);
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .filter-input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      flex: 1; min-width: 200px;
+    }
+    .filter-input:focus, .filter-select:focus { outline: none; border-color: var(--accent); }
+
+    /* ── EMPTY STATE ─────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-dim);
+    }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
+    .empty-text { font-size: 0.9rem; }
+
+    /* ── TOAST ───────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 28px; right: 28px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--ok);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      z-index: 9999;
+      display: none;
+      font-family: var(--mono);
+      max-width: 360px;
+    }
+    #toast.error { border-left-color: var(--accent); }
+
+    /* ── TAB VIEWS ───────────────────────────────────────────── */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .score-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      flex: 1; min-width: 60px; position: relative;
+    }
+    .score-bar-fill {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      border-radius: 2px;
+      background: var(--fill-color, var(--accent));
+      transition: width 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <span>⚡ LLM</span>
+      <span class="brand">RED TEAMER</span>
+      <span class="dot">◆</span>
+      <span class="ver">v1.0 / Cyber0x</span>
+    </div>
+    <div class="header-actions">
+      <div class="nav-tabs">
+        <button class="nav-tab active" onclick="switchView('dashboard')">Dashboard</button>
+        <button class="nav-tab" onclick="switchView('findings')">Findings</button>
+        <button class="nav-tab" onclick="switchView('compare')">Compare</button>
+        <button class="nav-tab" onclick="switchView('upload')">Upload</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ── DASHBOARD VIEW ─────────────────────────────── -->
+    <div class="view active" id="view-dashboard">
+
+      <!-- Global stats -->
+      <div class="stat-grid" id="global-stats">
+        <div class="stat-card" style="--accent-bar: var(--accent2)">
+          <div class="stat-label">Total Scans</div>
+          <div class="stat-value" id="stat-scans">—</div>
+        </div>
+        <div class="stat-card" style="--accent-bar: var(--critical)">
+          <div class="stat-label">Total Findings</div>
+          <div class="stat-value" id="stat-findings">—</div>
+        </div>
+        <div class="stat-card" style="--accent-bar: var(--warn)">
+          <div class="stat-label">Highest Attack Rate</div>
+          <div class="stat-value" id="stat-rate">—</div>
+        </div>
+        <div class="stat-card" style="--accent-bar: var(--high)">
+          <div class="stat-label">Most Vulnerable</div>
+          <div class="stat-value" style="font-size:1rem" id="stat-model">—</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="chart-grid">
+        <div class="panel">
+          <div class="panel-title">Findings by Severity</div>
+          <div class="chart-wrap"><canvas id="chartSeverity"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Findings by Attack Category</div>
+          <div class="chart-wrap"><canvas id="chartCategory"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Scans table -->
+      <div class="panel">
+        <div class="panel-title">Uploaded Scans</div>
+        <div id="scans-table-wrap">
+          <div class="empty">
+            <div class="empty-icon">📡</div>
+            <div class="empty-text">No scans uploaded yet. Go to Upload to add your first scan report.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FINDINGS VIEW ──────────────────────────────── -->
+    <div class="view" id="view-findings">
+      <div class="panel">
+        <div class="panel-title">All Findings</div>
+        <div class="filter-bar">
+          <select class="filter-select" id="filter-scan" onchange="renderFindings()">
+            <option value="">All Scans</option>
+          </select>
+          <select class="filter-select" id="filter-severity" onchange="renderFindings()">
+            <option value="">All Severities</option>
+            <option value="CRITICAL">Critical</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+          <select class="filter-select" id="filter-category" onchange="renderFindings()">
+            <option value="">All Categories</option>
+            <option value="prompt_injection">Prompt Injection</option>
+            <option value="jailbreak">Jailbreak</option>
+            <option value="system_prompt_extraction">System Prompt Extraction</option>
+            <option value="role_confusion">Role Confusion</option>
+            <option value="data_exfiltration">Data Exfiltration</option>
+          </select>
+          <input class="filter-input" type="text" id="filter-search" placeholder="Search payload name..." oninput="renderFindings()" />
+        </div>
+        <div id="findings-list">
+          <div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No findings yet.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COMPARE VIEW ───────────────────────────────── -->
+    <div class="view" id="view-compare">
+      <div class="panel">
+        <div class="panel-title">Compare Scans</div>
+        <div class="filter-bar">
+          <select class="filter-select" id="compare-a" style="flex:1">
+            <option value="">Select Scan A</option>
+          </select>
+          <select class="filter-select" id="compare-b" style="flex:1">
+            <option value="">Select Scan B</option>
+          </select>
+          <button class="btn btn-primary" onclick="runCompare()">Compare</button>
+        </div>
+        <div id="compare-result"></div>
+      </div>
+    </div>
+
+    <!-- ── UPLOAD VIEW ────────────────────────────────── -->
+    <div class="view" id="view-upload">
+      <div class="panel">
+        <div class="panel-title">Upload Scan Report</div>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" accept=".json" id="file-input" onchange="handleFileSelect(event)" />
+          <div class="upload-icon">📂</div>
+          <div class="upload-text">
+            <strong>Click to browse</strong> or drag & drop a JSON scan report<br/>
+            <span style="font-size:0.78rem; margin-top:6px; display:block; font-family: var(--mono)">
+              Generated by: python main.py scan --output report.json
+            </span>
+          </div>
+        </div>
+        <div id="upload-status" style="margin-top:16px"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+const API = '';  // Relative paths — served by FastAPI
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let scansData = {};
+let charts = {};
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  await refreshAll();
+})();
+
+async function refreshAll() {
+  await loadScans();
+  await loadStats();
+}
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.textContent.toLowerCase() === name) t.classList.add('active');
+  });
+  if (name === 'findings') renderFindings();
+  if (name === 'compare') renderCompareDropdowns();
+}
+
+// ── API CALLS ─────────────────────────────────────────────────────────────────
+async function api(path, options = {}) {
+  const res = await fetch(API + path, options);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}
+
+async function loadScans() {
+  try {
+    const data = await api('/api/scans');
+    scansData = {};
+    data.scans.forEach(s => { scansData[s.scan_id] = s; });
+    renderScansTable(data.scans);
+    updateScanDropdowns(data.scans);
+  } catch(e) {
+    console.error('loadScans error:', e);
+  }
+}
+
+async function loadStats() {
+  try {
+    const data = await api('/api/stats');
+    const s = data.stats;
+    if (!s || !s.total_scans) return;
+
+    document.getElementById('stat-scans').textContent = s.total_scans ?? '—';
+    document.getElementById('stat-findings').textContent = s.total_findings ?? '—';
+    document.getElementById('stat-rate').textContent = s.highest_success_rate != null
+      ? (s.highest_success_rate * 100).toFixed(1) + '%' : '—';
+    document.getElementById('stat-model').textContent = s.most_vulnerable_model ?? '—';
+
+    renderSeverityChart(s.severity_breakdown || {});
+    renderCategoryChart(s.category_breakdown || {});
+  } catch(e) {
+    console.error('loadStats error:', e);
+  }
+}
+
+// ── SCANS TABLE ───────────────────────────────────────────────────────────────
+function renderScansTable(scans) {
+  const wrap = document.getElementById('scans-table-wrap');
+  if (!scans.length) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">📡</div><div class="empty-text">No scans uploaded yet.</div></div>`;
+    return;
+  }
+
+  const rows = scans.map(s => `
+    <tr>
+      <td class="mono dim">${s.scan_id}</td>
+      <td><strong>${esc(s.model || '—')}</strong><br/><span class="dim" style="font-size:0.78rem">${esc(s.provider || '')}</span></td>
+      <td class="mono dim" style="font-size:0.78rem">${esc(s.target_url || '—')}</td>
+      <td class="mono">${s.total_payloads ?? '—'}</td>
+      <td class="mono" style="color:${s.successful_attacks > 0 ? 'var(--accent)' : 'var(--ok)'}">${s.successful_attacks ?? '—'}</td>
+      <td>${severityBadge(s.aggregate_severity)}</td>
+      <td class="mono">${s.aggregate_score != null ? s.aggregate_score.toFixed(4) : '—'}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="viewScanFindings('${s.scan_id}')">View</button>
+          <button class="btn btn-ghost btn-sm" style="margin-left:4px;color:var(--accent)" onclick="deleteScan('${s.scan_id}')">✕</button></td>
+    </tr>
+  `).join('');
+
+  wrap.innerHTML = `
+    <table class="scan-table">
+      <thead><tr>
+        <th>ID</th><th>Model</th><th>Target</th><th>Payloads</th>
+        <th>Successful</th><th>Severity</th><th>Score</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── FINDINGS ──────────────────────────────────────────────────────────────────
+let allFindings = [];
+
+async function viewScanFindings(scanId) {
+  switchView('findings');
+  document.getElementById('filter-scan').value = scanId;
+  renderFindings();
+}
+
+async function renderFindings() {
+  const scanFilter   = document.getElementById('filter-scan').value;
+  const sevFilter    = document.getElementById('filter-severity').value;
+  const catFilter    = document.getElementById('filter-category').value;
+  const searchFilter = document.getElementById('filter-search').value.toLowerCase();
+
+  // Load findings from selected scan(s)
+  let findings = [];
+  const scanIds = scanFilter ? [scanFilter] : Object.keys(scansData);
+
+  for (const id of scanIds) {
+    try {
+      const detail = await api(`/api/scans/${id}`);
+      (detail.findings || []).forEach(f => {
+        findings.push({ ...f, _scan_id: id, _model: detail.scan_meta?.model });
+      });
+    } catch(e) {}
+  }
+
+  // Apply filters
+  findings = findings.filter(f => {
+    if (sevFilter && f.severity !== sevFilter) return false;
+    if (catFilter && f.category !== catFilter) return false;
+    if (searchFilter && !f.payload_name?.toLowerCase().includes(searchFilter)) return false;
+    return true;
+  });
+
+  // Sort by risk score desc
+  findings.sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0));
+
+  const list = document.getElementById('findings-list');
+  if (!findings.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No findings match the current filters.</div></div>`;
+    return;
+  }
+
+  const sevColor = { CRITICAL: 'var(--critical)', HIGH: 'var(--high)', MEDIUM: 'var(--medium)', LOW: 'var(--low)' };
+
+  list.innerHTML = findings.map((f, i) => `
+    <div class="finding-card" style="--sev-color: ${sevColor[f.severity] || 'var(--border)'}">
+      <div class="finding-header">
+        <div class="finding-name">${esc(f.payload_name || f.payload_id)}</div>
+        <div class="finding-meta">
+          ${severityBadge(f.severity)}
+          <span class="badge badge-none">${esc(f.owasp_ref || '')}</span>
+          <span class="mono dim" style="font-size:0.78rem">score: ${(f.risk_score||0).toFixed(4)}</span>
+          <span class="mono dim" style="font-size:0.78rem">conf: ${((f.confidence||0)*100).toFixed(0)}%</span>
+        </div>
+      </div>
+      <div class="finding-meta" style="margin-bottom: 8px; gap: 6px; flex-wrap: wrap">
+        <span class="badge badge-none" style="font-size:0.68rem">${esc(f.category?.replace(/_/g,' ') || '')}</span>
+        ${(f.tags || []).slice(0,3).map(t => `<span class="badge badge-none" style="font-size:0.65rem">${esc(t)}</span>`).join('')}
+        <span class="dim" style="font-size:0.78rem; margin-left: auto">model: ${esc(f._model || '—')}</span>
+      </div>
+      <div style="font-size:0.8rem; color: var(--text-dim); margin-bottom: 6px">
+        ${(f.signals_triggered || []).map(s => `<div class="finding-signal">▸ ${esc(s)}</div>`).join('')}
+      </div>
+      ${f.response_snippet ? `<div class="finding-response">${esc(f.response_snippet)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// ── COMPARE ───────────────────────────────────────────────────────────────────
+function renderCompareDropdowns() {
+  const scans = Object.values(scansData);
+  ['compare-a', 'compare-b'].forEach(id => {
+    const sel = document.getElementById(id);
+    const current = sel.value;
+    sel.innerHTML = `<option value="">Select Scan</option>` +
+      scans.map(s => `<option value="${s.scan_id}" ${s.scan_id === current ? 'selected' : ''}>${esc(s.model || s.scan_id)} (${s.scan_id})</option>`).join('');
+  });
+}
+
+function updateScanDropdowns(scans) {
+  const fsel = document.getElementById('filter-scan');
+  fsel.innerHTML = `<option value="">All Scans</option>` +
+    scans.map(s => `<option value="${s.scan_id}">${esc(s.model || s.scan_id)} (${s.scan_id})</option>`).join('');
+  renderCompareDropdowns();
+}
+
+async function runCompare() {
+  const a = document.getElementById('compare-a').value;
+  const b = document.getElementById('compare-b').value;
+  if (!a || !b) return showToast('Select two scans to compare', true);
+
+  try {
+    const data = await api(`/api/compare?scan_ids=${a},${b}`);
+    renderCompareResult(data.comparison);
+  } catch(e) { showToast(e.message, true); }
+}
+
+function renderCompareResult(items) {
+  const wrap = document.getElementById('compare-result');
+  if (!items || items.length < 2) { wrap.innerHTML = ''; return; }
+
+  const [a, b] = items;
+  const cats = ['prompt_injection', 'jailbreak', 'system_prompt_extraction', 'role_confusion', 'data_exfiltration'];
+
+  const catRow = (cat) => {
+    const ra = (a.category_success_rates?.[cat] || 0) * 100;
+    const rb = (b.category_success_rates?.[cat] || 0) * 100;
+    const winner = ra > rb ? 'a' : rb > ra ? 'b' : null;
+    return `
+      <tr>
+        <td>${cat.replace(/_/g,' ')}</td>
+        <td class="mono" style="color:${winner==='a'?'var(--accent)':'var(--text)'}">${ra.toFixed(1)}%</td>
+        <td class="mono" style="color:${winner==='b'?'var(--accent)':'var(--text)'}">${rb.toFixed(1)}%</td>
+      </tr>`;
+  };
+
+  wrap.innerHTML = `
+    <table class="scan-table" style="margin-top:16px">
+      <thead><tr><th>Metric</th><th>${esc(a.model || a.scan_id)}</th><th>${esc(b.model || b.scan_id)}</th></tr></thead>
+      <tbody>
+        <tr><td>Success Rate</td>
+            <td class="mono">${((a.success_rate||0)*100).toFixed(1)}%</td>
+            <td class="mono">${((b.success_rate||0)*100).toFixed(1)}%</td></tr>
+        <tr><td>Aggregate Score</td>
+            <td class="mono">${(a.aggregate_score||0).toFixed(4)}</td>
+            <td class="mono">${(b.aggregate_score||0).toFixed(4)}</td></tr>
+        <tr><td>Severity</td>
+            <td>${severityBadge(a.aggregate_severity)}</td>
+            <td>${severityBadge(b.aggregate_severity)}</td></tr>
+        <tr><td>Findings</td>
+            <td class="mono">${a.findings_count||0}</td>
+            <td class="mono">${b.findings_count||0}</td></tr>
+        <tr><td colspan="3" style="padding-top:12px; color: var(--text-dim); font-size:0.72rem; text-transform:uppercase; letter-spacing:.1em">Category Breakdown</td></tr>
+        ${cats.map(catRow).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── UPLOAD ────────────────────────────────────────────────────────────────────
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) uploadFile(file);
+}
+
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) uploadFile(file);
+});
+
+async function uploadFile(file) {
+  const status = document.getElementById('upload-status');
+  status.innerHTML = `<div class="dim mono" style="font-size:0.85rem">⏳ Uploading ${esc(file.name)}...</div>`;
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Upload failed');
+
+    status.innerHTML = `
+      <div style="color:var(--ok); font-family:var(--mono); font-size:0.85rem">
+        ✓ Uploaded: <strong>${esc(data.scan_id)}</strong> — 
+        Model: ${esc(data.model || '—')} — 
+        Attack rate: ${((data.success_rate||0)*100).toFixed(1)}%
+      </div>`;
+
+    showToast(`Scan ${data.scan_id} uploaded. ${data.message}`);
+    await refreshAll();
+  } catch(e) {
+    status.innerHTML = `<div style="color:var(--accent); font-family:var(--mono); font-size:0.85rem">✗ ${esc(e.message)}</div>`;
+    showToast(e.message, true);
+  }
+}
+
+// ── DELETE ─────────────────────────────────────────────────────────────────────
+async function deleteScan(scanId) {
+  if (!confirm(`Delete scan ${scanId}?`)) return;
+  try {
+    await api(`/api/scans/${scanId}`, { method: 'DELETE' });
+    showToast(`Scan ${scanId} deleted`);
+    await refreshAll();
+  } catch(e) { showToast(e.message, true); }
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+function renderSeverityChart(data) {
+  if (charts.severity) charts.severity.destroy();
+  const ctx = document.getElementById('chartSeverity').getContext('2d');
+  charts.severity = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Critical', 'High', 'Medium', 'Low'],
+      datasets: [{
+        data: [data.CRITICAL||0, data.HIGH||0, data.MEDIUM||0, data.LOW||0],
+        backgroundColor: ['rgba(248,81,73,0.8)','rgba(219,109,40,0.8)','rgba(227,179,65,0.8)','rgba(63,185,80,0.8)'],
+        borderColor: '#080b10',
+        borderWidth: 3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#c9d1d9', font: { family: 'Rajdhani', size: 13 } } }
+      }
+    }
+  });
+}
+
+function renderCategoryChart(data) {
+  if (charts.category) charts.category.destroy();
+  const ctx = document.getElementById('chartCategory').getContext('2d');
+  const labels = Object.keys(data).map(k => k.replace(/_/g, ' '));
+  const values = Object.values(data);
+  charts.category = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Findings',
+        data: values,
+        backgroundColor: 'rgba(248,81,73,0.6)',
+        borderColor: 'rgba(248,81,73,1)',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6e7681' }, grid: { color: 'rgba(33,38,45,0.8)' } },
+        y: { ticks: { color: '#c9d1d9', font: { family: 'Rajdhani', size: 12 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function severityBadge(sev) {
+  if (!sev) return '<span class="badge badge-none">—</span>';
+  const cls = { CRITICAL:'critical', HIGH:'high', MEDIUM:'medium', LOW:'low' }[sev] || 'none';
+  return `<span class="badge badge-${cls}">${sev}</span>`;
+}
+
+function esc(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = isError ? 'error' : '';
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+</script>
+</body>
+</html>
