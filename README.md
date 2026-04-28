@@ -138,7 +138,7 @@ Each stage is fully decoupled. The engine doesn't know about the CLI. The analyz
 ### Install
 
 ```bash
-git clone https://github.com/omar0x/llm-red-teamer.git
+git clone https://github.com/i7-x/llm-red-teamer.git
 cd llm-red-teamer
 
 python -m venv venv
@@ -286,9 +286,7 @@ MIT — use it, fork it, build on it.
 
 ## Author
 
-Built by **Omar** — [@omar0x](https://github.com/omar0x)  
-Network Engineer → Pentester → AI Security Specialist (in progress)  
-Freelance security brand: **Cyber0x**
+Built by **Omar** — [@i7-x](https://github.com/i7-x)  
 
 > *"Prompt injection is the SQL injection of the AI era. Most people don't know it yet."*
 
