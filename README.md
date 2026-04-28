@@ -43,11 +43,11 @@ LLM deployments are exploding across industries — customer support bots, inter
 *`python main.py list-payloads` — all 43 payloads across 5 attack categories, with OWASP mapping and severity hints*
 
 ### Mock Server Scan — CRITICAL
-![Mock Scan](docs/screenshots/03_mock_scan_critical.png)
+![Mock Scan](docs/screenshots/03_1_mock_scan_critical.png)
 *Full scan against a deliberately vulnerable mock server. 4 successful attacks detected including data exfiltration and jailbreak. Aggregate risk: CRITICAL.*
 
 ### Llama 3.2 Scan — MEDIUM
-![Llama Scan](docs/screenshots/04_1_llama_scan_medium.png)
+![Llama Scan](docs/screenshots/04_llama_scan_medium.png)
 *Real scan against Llama 3.2 running locally via Ollama. 2 prompt injection findings. Aggregate risk: MEDIUM — model shows baseline resistance to most attacks.*
 
 ### Gemma 2:2b Scan — HIGH
