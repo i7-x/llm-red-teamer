@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+reports/
+venv/
+.venv/
+scan_gemma_log.txt
