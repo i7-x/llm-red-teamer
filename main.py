@@ -168,7 +168,7 @@ def cmd_scan(args: argparse.Namespace) -> None:
     provider = Provider(args.provider)
 
     console.print()
-    console.print("[bold cyan]⚡ LLM Red Teamer[/bold cyan] [dim]by Cyber0x[/dim]")
+    console.print("[bold cyan]⚡ LLM Red Teamer[/bold cyan] [dim]by omar0x[/dim]")
     console.print(f"  Target: [bold]{args.url}[/bold]")
     console.print(f"  Model:  [bold]{args.model}[/bold]")
     console.print(f"  Provider: [bold]{args.provider}[/bold]")
@@ -227,7 +227,8 @@ def cmd_scan(args: argparse.Namespace) -> None:
     else:
         # Auto-save to reports/ with timestamp
         timestamp = datetime.fromtimestamp(scan_result.start_time).strftime("%Y%m%d_%H%M%S")
-        auto_path = os.path.join("reports", f"scan_{timestamp}_{args.model.replace('/', '-')}.json")
+        safe_model = args.model.replace('/', '-').replace(':', '-').replace('\\', '-')
+        auto_path = os.path.join("reports", f"scan_{timestamp}_{safe_model}.json")
         export_json(scan_result, auto_path)
 
 
